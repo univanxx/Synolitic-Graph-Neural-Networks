@@ -153,7 +153,7 @@ uv run sgnn/train_xgboost.py ++xgboost.gridsearch.enabled=true
 ## Project Structure
 
 ```text
-smiles_2025_sgnn/
+Synolitic-Graph-Neural-Networks/
 ├── conf/
 │   └── config.yaml          # Main configuration file
 ├── scripts/
@@ -171,8 +171,7 @@ smiles_2025_sgnn/
 │   ├── node_features_utils.py # Node feature addition
 │   ├── train_xgboost.py     # XGBoost training
 │   └── utils.py             # General utilities
-├── main.py                  # Main training script
-└── analyze_results.ipynb    # Results analysis notebook
+└── main.py                  # Main training script
 ```
 
 ## Results and Logging
