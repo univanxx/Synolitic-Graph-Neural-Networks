@@ -184,7 +184,7 @@ class GNNTrainer:
             val_metrics = self.evaluate(model, val_loader, criterion)
 
             # Update learning rate scheduler
-            scheduler.step(epoch)
+            scheduler.step(val_metrics["roc_auc"])
 
             # Track history
             history["epoch"].append(epoch)
