@@ -27,7 +27,7 @@ from tqdm.auto import tqdm
 warnings.filterwarnings("ignore")
 
 
-def objective(trial: Trial, cfg: DictConfig, full_data: list[Data], log_dir: Path) -> float:  # noqa
+def objective(trial: Trial, cfg: DictConfig, full_data: list[Data], log_dir: Path, seed: int) -> float:
     """Optuna hyperparameter optimization objective"""
     logger = None
     tb_writer = None
@@ -208,7 +208,7 @@ def objective(trial: Trial, cfg: DictConfig, full_data: list[Data], log_dir: Pat
         fold_log_dir.mkdir(exist_ok=True)
         labels = [data.y for data in full_data]
         train_idx, val_idx = train_test_split(
-            np.arange(len(labels)), train_size=0.9, stratify=labels, random_state=trial_cfg.seed
+            np.arange(len(labels)), train_size=0.9, stratify=labels, random_state=seed
         )
         # Create data loaders
         train_loader = DataLoader(
@@ -349,7 +349,7 @@ def main_loop(cfg: DictConfig, selected_data, base_dir):
                 )
 
                 study.optimize(
-                    lambda trial: objective(trial, cfg, full_data, model_dir),
+                    lambda trial: objective(trial, cfg, full_data, model_dir, cfg.seed),
                     n_trials=cfg.optuna.n_trials,
                     timeout=cfg.optuna.timeout,
                     show_progress_bar=True,
@@ -466,15 +466,26 @@ def main_loop(cfg: DictConfig, selected_data, base_dir):
 def main(cfg: DictConfig) -> None:
     """Main experiment runner with Hydra configuration"""
     # Initialize output directory
-    base_dir = Path(cfg.save_path) / "logs" / str(cfg.data.dataset_size)
+    # Include fold in path, if provided
+    if cfg.data.fold is not None:
+        base_dir = Path(cfg.save_path) / "logs" / str(cfg.data.dataset_size) / f"fold_{cfg.data.fold}"
+    else:
+        base_dir = Path(cfg.save_path) / "logs" / str(cfg.data.dataset_size)
 
     # Load datasets
-    dataset_path = os.path.join(
+    path_parts = [
         cfg.data.dataset_path,
         f"csv_{cfg.data.dataset_size}",
-        "noisy" if cfg.expand_features else "",
-        "processed_graphs.pkl",
-    )
+    ]
+
+    if cfg.expand_features:
+        path_parts.append("noisy")
+    
+    if cfg.data.fold is not None:
+        path_parts.append(f"fold_{cfg.data.fold}")
+    
+    path_parts.append("processed_graphs.pkl")
+    dataset_path = os.path.join(*path_parts)
     dataset_names = cfg.data.datasets
     with Path(dataset_path).open("rb") as f:
         all_data = pickle.load(f)
@@ -500,13 +511,14 @@ def main(cfg: DictConfig) -> None:
             main_loop(cfg, selected_data, cur_dir)
     else:
         selected_data = {"train": [], "test": []}
+        cur_dir = base_dir / "foundation_dataset"
         if not dataset_names:
             dataset_names = list(all_data.keys())
             for dataset_name in tqdm(dataset_names, desc="Loading datasets"):
                 data = all_data[dataset_name]
                 selected_data["train"].extend(data["train"])
                 selected_data["test"].extend(data["test"])
-            main_loop(cfg, selected_data, base_dir)
+            main_loop(cfg, selected_data, cur_dir)
 
 
 if __name__ == "__main__":
